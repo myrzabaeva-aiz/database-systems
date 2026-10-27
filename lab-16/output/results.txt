@@ -1,0 +1,24 @@
+Lab 16: Transactions and ACID Properties
+Student: Aizirek Myrzabayeva
+
+PASS COMMIT transfer: 1:500.00, 2:1500.00
+PASS ROLLBACK transfer: 1:500.00, 2:1500.00
+PASS Insufficient funds rejected: SQLSTATE=P0001; total=2000.00
+PASS Atomic inventory rollback: SQLSTATE=23514; 0|0|10
+PASS Foreign key consistency: SQLSTATE=23503; remaining=0
+PASS Savepoint keeps participant, replaces reservation: Ermek Tashiev:300.00
+PASS Nested savepoints: SQLSTATE=23514; Webcam, Microphone, Projector
+PASS RELEASE SAVEPOINT retains changes: 2
+PASS Reservation items recovered after rollback: SQLSTATE=23503; 2|8
+PASS User preferences and audit committed: 1|1|1
+PASS READ UNCOMMITTED prevents dirty reads: 500.00
+PASS READ COMMITTED sees later committed changes: 500.00 -> 600.00
+PASS REPEATABLE READ stable snapshot: 600.00/2 -> 600.00/2
+PASS Session default isolation: repeatable read
+PASS SERIALIZABLE conflict and whole-transaction retry: SQLSTATE=40001; remaining_on_duty=1
+PASS Blocked transaction visible through pg_blocking_pids: t
+PASS Waiting update proceeds after unlock: 00000
+PASS Deadlock identified and handled: ['40P01', '00000']
+PASS COMMIT survives simulated server crash: before=1:702.00, 2:1500.00, 3:50.00; after=1:702.00, 2:1500.00, 3:50.00
+
+19/19 checks passed

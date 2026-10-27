@@ -1,0 +1,340 @@
+$ /opt/homebrew/bin/initdb -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/cluster -U lab16_user --auth-local=trust --auth-host=reject --encoding=UTF8 --locale=C
+The files belonging to this database system will be owned by user "aizirekmyrzabayeva".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "C".
+The default text search configuration will be set to "english".
+
+Data page checksums are enabled.
+
+creating directory /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/cluster ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default "max_connections" ... 100
+selecting default "shared_buffers" ... 128MB
+selecting default time zone ... Asia/Bishkek
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+
+Success. You can now start the database server using:
+
+    /opt/homebrew/bin/pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/cluster -l logfile start
+$ /opt/homebrew/bin/pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/cluster -l /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/server.log -w start -o -c listen_addresses='' -k /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/socket -p 58284
+waiting for server to start.... done
+server started
+$ /opt/homebrew/bin/psql -X -v ON_ERROR_STOP=1 -f /Users/aizirekmyrzabayeva/database-systems/lab-16/setup.sql
+CREATE TABLE
+INSERT 0 2
+CREATE TABLE
+INSERT 0 1
+CREATE TABLE
+INSERT 0 1
+CREATE TABLE
+INSERT 0 1
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+INSERT 0 2
+CREATE FUNCTION
+[A] BEGIN;
+state=00000
+[A] SELECT transfer_budget(1,2,500);
+state=00000
+[A] COMMIT;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT string_agg(wallet_id || ':' || balance, ', ' ORDER BY wallet_id) FROM wallets;
+1:500.00, 2:1500.00
+PASS COMMIT transfer: 1:500.00, 2:1500.00
+[A] BEGIN;
+state=00000
+[A] SELECT transfer_budget(2,1,100);
+state=00000
+[A] ROLLBACK;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT string_agg(wallet_id || ':' || balance, ', ' ORDER BY wallet_id) FROM wallets;
+1:500.00, 2:1500.00
+PASS ROLLBACK transfer: 1:500.00, 2:1500.00
+[A] BEGIN;
+state=00000
+[A] SELECT transfer_budget(1,2,9999);
+ERROR:  Insufficient budget
+CONTEXT:  PL/pgSQL function transfer_budget(integer,integer,numeric) line 14 at RAISE
+state=P0001
+[A] ROLLBACK;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT sum(balance) FROM wallets;
+2000.00
+PASS Insufficient funds rejected: SQLSTATE=P0001; total=2000.00
+[A] BEGIN;
+state=00000
+[A] INSERT INTO reservations VALUES (10,1,300);
+state=00000
+[A] INSERT INTO reservation_items VALUES (10,101,20);
+state=00000
+[A] UPDATE inventory SET units_available=units_available-20 WHERE equipment_id=101;
+ERROR:  new row for relation "inventory" violates check constraint "inventory_units_available_check"
+DETAIL:  Failing row contains (101, -10).
+state=23514
+[A] ROLLBACK;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT (SELECT count(*) FROM reservations), (SELECT count(*) FROM reservation_items), units_available FROM inventory;
+0|0|10
+PASS Atomic inventory rollback: SQLSTATE=23514; 0|0|10
+[A] BEGIN;
+state=00000
+[A] INSERT INTO reservations VALUES (11,999,100);
+ERROR:  insert or update on table "reservations" violates foreign key constraint "reservations_participant_id_fkey"
+DETAIL:  Key (participant_id)=(999) is not present in table "participants".
+state=23503
+[A] ROLLBACK;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT count(*) FROM reservations;
+0
+PASS Foreign key consistency: SQLSTATE=23503; remaining=0
+[A] BEGIN;
+state=00000
+[A] INSERT INTO participants VALUES (2,'Ermek Tashiev','ermek@example.org');
+state=00000
+[A] SAVEPOINT after_participant;
+state=00000
+[A] INSERT INTO reservations VALUES (20,2,500);
+state=00000
+[A] ROLLBACK TO SAVEPOINT after_participant;
+state=00000
+[A] INSERT INTO reservations VALUES (21,2,300);
+state=00000
+[A] COMMIT;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT p.full_name || ':' || r.total_cost FROM participants p JOIN reservations r USING(participant_id) WHERE p.participant_id=2;
+Ermek Tashiev:300.00
+PASS Savepoint keeps participant, replaces reservation: Ermek Tashiev:300.00
+[A] BEGIN;
+state=00000
+[A] INSERT INTO equipment VALUES (1,'Webcam',80);
+state=00000
+[A] SAVEPOINT sp_one;
+state=00000
+[A] INSERT INTO equipment VALUES (2,'Microphone',35);
+state=00000
+[A] SAVEPOINT sp_two;
+state=00000
+[A] INSERT INTO equipment VALUES (3,'Invalid item',-5);
+ERROR:  new row for relation "equipment" violates check constraint "equipment_unit_price_check"
+DETAIL:  Failing row contains (3, Invalid item, -5.00).
+state=23514
+[A] ROLLBACK TO SAVEPOINT sp_two;
+state=00000
+[A] INSERT INTO equipment VALUES (4,'Projector',250);
+state=00000
+[A] RELEASE SAVEPOINT sp_one;
+state=00000
+[A] COMMIT;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT string_agg(equipment_name, ', ' ORDER BY equipment_id) FROM equipment WHERE equipment_id < 100;
+Webcam, Microphone, Projector
+PASS Nested savepoints: SQLSTATE=23514; Webcam, Microphone, Projector
+[A] BEGIN;
+state=00000
+[A] INSERT INTO activity_logs VALUES ('Workshop registration started');
+state=00000
+[A] SAVEPOINT started;
+state=00000
+[A] INSERT INTO activity_logs VALUES ('Workshop registration completed');
+state=00000
+[A] RELEASE SAVEPOINT started;
+state=00000
+[A] COMMIT;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT count(*) FROM activity_logs;
+2
+PASS RELEASE SAVEPOINT retains changes: 2
+[A] BEGIN;
+state=00000
+[A] INSERT INTO reservations VALUES (30,1,200);
+state=00000
+[A] SAVEPOINT before_items;
+state=00000
+[A] INSERT INTO reservation_items VALUES (30,999,1);
+ERROR:  insert or update on table "reservation_items" violates foreign key constraint "reservation_items_equipment_id_fkey"
+DETAIL:  Key (equipment_id)=(999) is not present in table "equipment".
+state=23503
+[A] ROLLBACK TO SAVEPOINT before_items;
+state=00000
+[A] INSERT INTO reservation_items VALUES (30,101,2);
+state=00000
+[A] UPDATE inventory SET units_available=units_available-2 WHERE equipment_id=101;
+state=00000
+[A] COMMIT;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT ri.quantity || '|' || i.units_available FROM reservation_items ri JOIN inventory i USING(equipment_id) WHERE ri.reservation_id=30;
+2|8
+PASS Reservation items recovered after rollback: SQLSTATE=23503; 2|8
+[A] BEGIN;
+state=00000
+[A] INSERT INTO audit_log(action) VALUES ('new_user');
+state=00000
+[A] INSERT INTO users VALUES (1,'Adina Bekova');
+state=00000
+[A] INSERT INTO user_preferences VALUES (1,'dark');
+state=00000
+[A] COMMIT;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT (SELECT count(*) FROM users), (SELECT count(*) FROM user_preferences), (SELECT count(*) FROM audit_log);
+1|1|1
+PASS User preferences and audit committed: 1|1|1
+[A] BEGIN;
+state=00000
+[A] UPDATE wallets SET balance=600 WHERE wallet_id=1;
+state=00000
+[B] BEGIN ISOLATION LEVEL READ UNCOMMITTED;
+state=00000
+[B] SELECT balance FROM wallets WHERE wallet_id=1;
+500.00
+state=00000
+[B] COMMIT;
+state=00000
+[A] ROLLBACK;
+state=00000
+PASS READ UNCOMMITTED prevents dirty reads: 500.00
+[A] BEGIN ISOLATION LEVEL READ COMMITTED;
+state=00000
+[A] SELECT balance FROM wallets WHERE wallet_id=1;
+500.00
+state=00000
+[B] UPDATE wallets SET balance=600 WHERE wallet_id=1;
+state=00000
+[A] SELECT balance FROM wallets WHERE wallet_id=1;
+600.00
+state=00000
+[A] COMMIT;
+state=00000
+PASS READ COMMITTED sees later committed changes: 500.00 -> 600.00
+[A] BEGIN ISOLATION LEVEL REPEATABLE READ;
+state=00000
+[A] SELECT balance FROM wallets WHERE wallet_id=1;
+600.00
+state=00000
+[A] SELECT count(*) FROM wallets;
+2
+state=00000
+[B] UPDATE wallets SET balance=700 WHERE wallet_id=1;
+state=00000
+[B] INSERT INTO wallets VALUES (3,'Emergency Budget',50);
+state=00000
+[A] SELECT balance FROM wallets WHERE wallet_id=1;
+600.00
+state=00000
+[A] SELECT count(*) FROM wallets;
+2
+state=00000
+[A] COMMIT;
+state=00000
+PASS REPEATABLE READ stable snapshot: 600.00/2 -> 600.00/2
+[A] SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+state=00000
+[A] BEGIN;
+state=00000
+[A] SHOW transaction_isolation;
+repeatable read
+state=00000
+[A] COMMIT;
+state=00000
+[A] SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL READ COMMITTED;
+state=00000
+PASS Session default isolation: repeatable read
+[A] BEGIN ISOLATION LEVEL SERIALIZABLE;
+state=00000
+[A] SELECT count(*) FROM facilitators_on_duty WHERE on_duty;
+2
+state=00000
+[B] BEGIN ISOLATION LEVEL SERIALIZABLE;
+state=00000
+[B] SELECT count(*) FROM facilitators_on_duty WHERE on_duty;
+2
+state=00000
+[A] UPDATE facilitators_on_duty SET on_duty=false WHERE facilitator_id=1;
+state=00000
+[A] COMMIT;
+state=00000
+[B] UPDATE facilitators_on_duty SET on_duty=false WHERE facilitator_id=2;
+ERROR:  could not serialize access due to read/write dependencies among transactions
+DETAIL:  Reason code: Canceled on identification as a pivot, during write.
+HINT:  The transaction might succeed if retried.
+state=40001
+[B] ROLLBACK;
+state=00000
+[B] BEGIN ISOLATION LEVEL SERIALIZABLE;
+state=00000
+[B] UPDATE facilitators_on_duty SET on_duty=false WHERE facilitator_id=2 AND (SELECT count(*) FROM facilitators_on_duty WHERE on_duty)>1;
+state=00000
+[B] COMMIT;
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT count(*) FROM facilitators_on_duty WHERE on_duty;
+1
+PASS SERIALIZABLE conflict and whole-transaction retry: SQLSTATE=40001; remaining_on_duty=1
+[A] BEGIN;
+state=00000
+[A] UPDATE wallets SET balance=balance+1 WHERE wallet_id=1;
+state=00000
+[B] BEGIN;
+state=00000
+[A] SELECT pg_backend_pid();
+8991
+state=00000
+[B] SELECT pg_backend_pid();
+8992
+state=00000
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT 8991=ANY(pg_blocking_pids(8992));
+t
+PASS Blocked transaction visible through pg_blocking_pids: t
+[A] COMMIT;
+state=00000
+[B] UPDATE wallets SET balance=balance+1 WHERE wallet_id=1;
+state=00000
+[B] COMMIT;
+state=00000
+PASS Waiting update proceeds after unlock: 00000
+[A] BEGIN;
+state=00000
+[A] UPDATE wallets SET balance=balance+1 WHERE wallet_id=1;
+state=00000
+[B] BEGIN;
+state=00000
+[B] UPDATE wallets SET balance=balance+1 WHERE wallet_id=2;
+state=00000
+[A] UPDATE wallets SET balance=balance+1 WHERE wallet_id=2;
+ERROR:  deadlock detected
+DETAIL:  Process 8991 waits for ShareLock on transaction 795; blocked by process 8992.
+Process 8992 waits for ShareLock on transaction 794; blocked by process 8991.
+HINT:  See server log for query details.
+CONTEXT:  while updating tuple (0,4) in relation "wallets"
+state=40P01
+[B] UPDATE wallets SET balance=balance+1 WHERE wallet_id=1;
+state=00000
+[A] ROLLBACK;
+state=00000
+[B] ROLLBACK;
+state=00000
+PASS Deadlock identified and handled: ['40P01', '00000']
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT string_agg(wallet_id || ':' || balance, ', ' ORDER BY wallet_id) FROM wallets;
+1:702.00, 2:1500.00, 3:50.00
+$ /opt/homebrew/bin/pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/cluster -m immediate -w stop
+waiting for server to shut down.... done
+server stopped
+$ /opt/homebrew/bin/pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/cluster -l /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/server.log -w start -o -c listen_addresses='' -k /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/socket -p 58284
+waiting for server to start.... done
+server started
+$ /opt/homebrew/bin/psql -X -qAt -v ON_ERROR_STOP=1 -c SELECT string_agg(wallet_id || ':' || balance, ', ' ORDER BY wallet_id) FROM wallets;
+1:702.00, 2:1500.00, 3:50.00
+PASS COMMIT survives simulated server crash: before=1:702.00, 2:1500.00, 3:50.00; after=1:702.00, 2:1500.00, 3:50.00
+$ /opt/homebrew/bin/pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek-lab16-v8fxd1b1/cluster -m fast -w stop
+waiting for server to shut down.... done
+server stopped
+
+19/19 checks passed
