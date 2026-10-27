@@ -1,0 +1,245 @@
+Lab 10 — Viewing Database and Table Structure
+Student: Aizirek Myrzabayeva
+Source: existing Community Film Festival schema (lab09)
+
+$ psql --version
+psql (PostgreSQL) 18.6 (Homebrew)
+
+$ psql -X -a -v ON_ERROR_STOP=1 -P pager=off -d postgres -f lab-10/psql-demo.sql
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+-- Lab 10 assumes Lab 09 has already created the film festival tables.
+DO $lab10_check$
+BEGIN
+    IF to_regclass('lab09.films') IS NULL
+       OR to_regclass('lab09.film_creators') IS NULL
+       OR to_regclass('lab09.screenings') IS NULL
+       OR to_regclass('lab09.filmmakers') IS NULL THEN
+        RAISE EXCEPTION 'Missing Lab 09 tables. Run zsh lab-09/capture_lab09.sh first, then rerun Lab 10.';
+    END IF;
+END
+$lab10_check$;
+DO
+-- psql meta-commands: table list and detailed table structure.
+\dt lab09.*
+                     List of tables
+ Schema |       Name       | Type  |       Owner        
+--------+------------------+-------+--------------------
+ lab09  | film_categories  | table | aizirekmyrzabayeva
+ lab09  | film_creators    | table | aizirekmyrzabayeva
+ lab09  | filmmaker_phones | table | aizirekmyrzabayeva
+ lab09  | filmmakers       | table | aizirekmyrzabayeva
+ lab09  | films            | table | aizirekmyrzabayeva
+ lab09  | screenings       | table | aizirekmyrzabayeva
+ lab09  | venues           | table | aizirekmyrzabayeva
+(7 rows)
+
+\d lab09.filmmakers
+                                  Table "lab09.filmmakers"
+    Column    |          Type          | Collation | Nullable |           Default            
+--------------+------------------------+-----------+----------+------------------------------
+ filmmaker_id | integer                |           | not null | generated always as identity
+ first_name   | character varying(60)  |           | not null | 
+ last_name    | character varying(60)  |           | not null | 
+ email        | character varying(120) |           | not null | 
+ birth_date   | date                   |           | not null | 
+ hometown     | character varying(70)  |           | not null | 
+Indexes:
+    "filmmakers_pkey" PRIMARY KEY, btree (filmmaker_id)
+    "filmmakers_email_key" UNIQUE CONSTRAINT, btree (email)
+Referenced by:
+    TABLE "lab09.film_creators" CONSTRAINT "film_creators_filmmaker_id_fkey" FOREIGN KEY (filmmaker_id) REFERENCES lab09.filmmakers(filmmaker_id)
+    TABLE "lab09.filmmaker_phones" CONSTRAINT "filmmaker_phones_filmmaker_id_fkey" FOREIGN KEY (filmmaker_id) REFERENCES lab09.filmmakers(filmmaker_id) ON DELETE CASCADE
+
+\d lab09.films
+                                       Table "lab09.films"
+      Column      |          Type          | Collation | Nullable |           Default            
+------------------+------------------------+-----------+----------+------------------------------
+ film_id          | integer                |           | not null | generated always as identity
+ film_code        | character varying(15)  |           | not null | 
+ title            | character varying(160) |           | not null | 
+ category_id      | integer                |           | not null | 
+ release_year     | integer                |           | not null | 
+ duration_minutes | integer                |           | not null | 
+Indexes:
+    "films_pkey" PRIMARY KEY, btree (film_id)
+    "films_film_code_key" UNIQUE CONSTRAINT, btree (film_code)
+Check constraints:
+    "films_duration_minutes_check" CHECK (duration_minutes >= 1 AND duration_minutes <= 180)
+    "films_release_year_check" CHECK (release_year >= 2000 AND release_year <= 2100)
+Foreign-key constraints:
+    "films_category_id_fkey" FOREIGN KEY (category_id) REFERENCES lab09.film_categories(category_id)
+Referenced by:
+    TABLE "lab09.film_creators" CONSTRAINT "film_creators_film_id_fkey" FOREIGN KEY (film_id) REFERENCES lab09.films(film_id) ON DELETE CASCADE
+    TABLE "lab09.screenings" CONSTRAINT "screenings_film_id_fkey" FOREIGN KEY (film_id) REFERENCES lab09.films(film_id)
+
+\d lab09.film_creators
+                        Table "lab09.film_creators"
+      Column       |         Type          | Collation | Nullable | Default 
+-------------------+-----------------------+-----------+----------+---------
+ film_id           | integer               |           | not null | 
+ filmmaker_id      | integer               |           | not null | 
+ contribution_role | character varying(20) |           | not null | 
+Indexes:
+    "film_creators_pkey" PRIMARY KEY, btree (film_id, filmmaker_id)
+    "film_creators_filmmaker_idx" btree (filmmaker_id)
+Check constraints:
+    "film_creators_contribution_role_check" CHECK (contribution_role::text = ANY (ARRAY['Director'::character varying, 'Co-director'::character varying, 'Producer'::character varying]::text[]))
+Foreign-key constraints:
+    "film_creators_film_id_fkey" FOREIGN KEY (film_id) REFERENCES lab09.films(film_id) ON DELETE CASCADE
+    "film_creators_filmmaker_id_fkey" FOREIGN KEY (filmmaker_id) REFERENCES lab09.filmmakers(filmmaker_id)
+
+\d lab09.screenings
+                                       Table "lab09.screenings"
+      Column      |            Type             | Collation | Nullable |           Default            
+------------------+-----------------------------+-----------+----------+------------------------------
+ screening_id     | integer                     |           | not null | generated always as identity
+ film_id          | integer                     |           | not null | 
+ venue_id         | integer                     |           | not null | 
+ starts_at        | timestamp without time zone |           | not null | 
+ ticket_price     | numeric(8,2)                |           | not null | 0
+ screening_status | character varying(15)       |           | not null | 
+Indexes:
+    "screenings_pkey" PRIMARY KEY, btree (screening_id)
+    "screenings_film_id_idx" btree (film_id)
+    "screenings_film_id_venue_id_starts_at_key" UNIQUE CONSTRAINT, btree (film_id, venue_id, starts_at)
+    "screenings_venue_time_idx" btree (venue_id, starts_at)
+Check constraints:
+    "screenings_screening_status_check" CHECK (screening_status::text = ANY (ARRAY['Scheduled'::character varying, 'Completed'::character varying]::text[]))
+    "screenings_ticket_price_check" CHECK (ticket_price >= 0::numeric)
+Foreign-key constraints:
+    "screenings_film_id_fkey" FOREIGN KEY (film_id) REFERENCES lab09.films(film_id)
+    "screenings_venue_id_fkey" FOREIGN KEY (venue_id) REFERENCES lab09.venues(venue_id)
+
+-- Query PostgreSQL metadata catalogs.
+\ir lab10.sql
+-- Lab 10 — Viewing Database and Table Structure
+-- Student: Aizirek Myrzabayeva
+-- Inspect the Community Film Festival schema created in Lab 09.
+-- Read-only: no tables are created, altered, or dropped.
+-- 1. Tables belonging to Lab 09.
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'lab09' AND table_type = 'BASE TABLE'
+ORDER BY table_name;
+    table_name    
+------------------
+ film_categories
+ film_creators
+ filmmaker_phones
+ filmmakers
+ films
+ screenings
+ venues
+(7 rows)
+
+-- 2. Four selected tables: fields, types, nullability, and defaults.
+SELECT table_name, ordinal_position, column_name,
+       data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = 'lab09'
+  AND table_name IN ('filmmakers', 'films', 'film_creators', 'screenings')
+ORDER BY table_name, ordinal_position;
+  table_name   | ordinal_position |    column_name    |          data_type          | is_nullable | column_default 
+---------------+------------------+-------------------+-----------------------------+-------------+----------------
+ film_creators |                1 | film_id           | integer                     | NO          | 
+ film_creators |                2 | filmmaker_id      | integer                     | NO          | 
+ film_creators |                3 | contribution_role | character varying           | NO          | 
+ filmmakers    |                1 | filmmaker_id      | integer                     | NO          | 
+ filmmakers    |                2 | first_name        | character varying           | NO          | 
+ filmmakers    |                3 | last_name         | character varying           | NO          | 
+ filmmakers    |                4 | email             | character varying           | NO          | 
+ filmmakers    |                5 | birth_date        | date                        | NO          | 
+ filmmakers    |                6 | hometown          | character varying           | NO          | 
+ films         |                1 | film_id           | integer                     | NO          | 
+ films         |                2 | film_code         | character varying           | NO          | 
+ films         |                3 | title             | character varying           | NO          | 
+ films         |                4 | category_id       | integer                     | NO          | 
+ films         |                5 | release_year      | integer                     | NO          | 
+ films         |                6 | duration_minutes  | integer                     | NO          | 
+ screenings    |                1 | screening_id      | integer                     | NO          | 
+ screenings    |                2 | film_id           | integer                     | NO          | 
+ screenings    |                3 | venue_id          | integer                     | NO          | 
+ screenings    |                4 | starts_at         | timestamp without time zone | NO          | 
+ screenings    |                5 | ticket_price      | numeric                     | NO          | 0
+ screenings    |                6 | screening_status  | character varying           | NO          | 
+(21 rows)
+
+-- 3. Primary keys, foreign keys, uniqueness, and CHECK rules.
+SELECT c.conrelid::regclass AS table_name,
+       c.conname AS constraint_name,
+       CASE c.contype
+           WHEN 'p' THEN 'PRIMARY KEY'
+           WHEN 'f' THEN 'FOREIGN KEY'
+           WHEN 'u' THEN 'UNIQUE'
+           WHEN 'c' THEN 'CHECK'
+       END AS constraint_type,
+       pg_get_constraintdef(c.oid) AS definition
+FROM pg_constraint AS c
+JOIN pg_namespace AS n ON n.oid = c.connamespace
+WHERE n.nspname = 'lab09'
+  AND c.contype IN ('p', 'f', 'u', 'c')
+ORDER BY c.conrelid::regclass::text, c.conname;
+       table_name       |              constraint_name              | constraint_type |                                                                         definition                                                                          
+------------------------+-------------------------------------------+-----------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+ lab09.film_categories  | film_categories_category_name_key         | UNIQUE          | UNIQUE (category_name)
+ lab09.film_categories  | film_categories_pkey                      | PRIMARY KEY     | PRIMARY KEY (category_id)
+ lab09.film_creators    | film_creators_contribution_role_check     | CHECK           | CHECK (((contribution_role)::text = ANY ((ARRAY['Director'::character varying, 'Co-director'::character varying, 'Producer'::character varying])::text[])))
+ lab09.film_creators    | film_creators_film_id_fkey                | FOREIGN KEY     | FOREIGN KEY (film_id) REFERENCES lab09.films(film_id) ON DELETE CASCADE
+ lab09.film_creators    | film_creators_filmmaker_id_fkey           | FOREIGN KEY     | FOREIGN KEY (filmmaker_id) REFERENCES lab09.filmmakers(filmmaker_id)
+ lab09.film_creators    | film_creators_pkey                        | PRIMARY KEY     | PRIMARY KEY (film_id, filmmaker_id)
+ lab09.filmmaker_phones | filmmaker_phones_filmmaker_id_fkey        | FOREIGN KEY     | FOREIGN KEY (filmmaker_id) REFERENCES lab09.filmmakers(filmmaker_id) ON DELETE CASCADE
+ lab09.filmmaker_phones | filmmaker_phones_phone_type_check         | CHECK           | CHECK (((phone_type)::text = ANY ((ARRAY['mobile'::character varying, 'home'::character varying])::text[])))
+ lab09.filmmaker_phones | filmmaker_phones_pkey                     | PRIMARY KEY     | PRIMARY KEY (filmmaker_id, phone_number)
+ lab09.filmmakers       | filmmakers_email_key                      | UNIQUE          | UNIQUE (email)
+ lab09.filmmakers       | filmmakers_pkey                           | PRIMARY KEY     | PRIMARY KEY (filmmaker_id)
+ lab09.films            | films_category_id_fkey                    | FOREIGN KEY     | FOREIGN KEY (category_id) REFERENCES lab09.film_categories(category_id)
+ lab09.films            | films_duration_minutes_check              | CHECK           | CHECK (((duration_minutes >= 1) AND (duration_minutes <= 180)))
+ lab09.films            | films_film_code_key                       | UNIQUE          | UNIQUE (film_code)
+ lab09.films            | films_pkey                                | PRIMARY KEY     | PRIMARY KEY (film_id)
+ lab09.films            | films_release_year_check                  | CHECK           | CHECK (((release_year >= 2000) AND (release_year <= 2100)))
+ lab09.screenings       | screenings_film_id_fkey                   | FOREIGN KEY     | FOREIGN KEY (film_id) REFERENCES lab09.films(film_id)
+ lab09.screenings       | screenings_film_id_venue_id_starts_at_key | UNIQUE          | UNIQUE (film_id, venue_id, starts_at)
+ lab09.screenings       | screenings_pkey                           | PRIMARY KEY     | PRIMARY KEY (screening_id)
+ lab09.screenings       | screenings_screening_status_check         | CHECK           | CHECK (((screening_status)::text = ANY ((ARRAY['Scheduled'::character varying, 'Completed'::character varying])::text[])))
+ lab09.screenings       | screenings_ticket_price_check             | CHECK           | CHECK ((ticket_price >= (0)::numeric))
+ lab09.screenings       | screenings_venue_id_fkey                  | FOREIGN KEY     | FOREIGN KEY (venue_id) REFERENCES lab09.venues(venue_id)
+ lab09.venues           | venues_capacity_check                     | CHECK           | CHECK ((capacity > 0))
+ lab09.venues           | venues_pkey                               | PRIMARY KEY     | PRIMARY KEY (venue_id)
+ lab09.venues           | venues_venue_name_city_key                | UNIQUE          | UNIQUE (venue_name, city)
+(25 rows)
+
+-- 4. Indexes created to support keys, constraints, and selected searches.
+SELECT tablename, indexname, indexdef
+FROM pg_indexes
+WHERE schemaname = 'lab09'
+  AND tablename IN ('filmmakers', 'films', 'film_creators', 'screenings')
+ORDER BY tablename, indexname;
+   tablename   |                 indexname                 |                                                           indexdef                                                           
+---------------+-------------------------------------------+------------------------------------------------------------------------------------------------------------------------------
+ film_creators | film_creators_filmmaker_idx               | CREATE INDEX film_creators_filmmaker_idx ON lab09.film_creators USING btree (filmmaker_id)
+ film_creators | film_creators_pkey                        | CREATE UNIQUE INDEX film_creators_pkey ON lab09.film_creators USING btree (film_id, filmmaker_id)
+ filmmakers    | filmmakers_email_key                      | CREATE UNIQUE INDEX filmmakers_email_key ON lab09.filmmakers USING btree (email)
+ filmmakers    | filmmakers_pkey                           | CREATE UNIQUE INDEX filmmakers_pkey ON lab09.filmmakers USING btree (filmmaker_id)
+ films         | films_film_code_key                       | CREATE UNIQUE INDEX films_film_code_key ON lab09.films USING btree (film_code)
+ films         | films_pkey                                | CREATE UNIQUE INDEX films_pkey ON lab09.films USING btree (film_id)
+ screenings    | screenings_film_id_idx                    | CREATE INDEX screenings_film_id_idx ON lab09.screenings USING btree (film_id)
+ screenings    | screenings_film_id_venue_id_starts_at_key | CREATE UNIQUE INDEX screenings_film_id_venue_id_starts_at_key ON lab09.screenings USING btree (film_id, venue_id, starts_at)
+ screenings    | screenings_pkey                           | CREATE UNIQUE INDEX screenings_pkey ON lab09.screenings USING btree (screening_id)
+ screenings    | screenings_venue_time_idx                 | CREATE INDEX screenings_venue_time_idx ON lab09.screenings USING btree (venue_id, starts_at)
+(10 rows)
+
+-- 5. Count actual schema objects. The original Lab 09 model has
+--    seven tables and six foreign-key constraints.
+SELECT
+    (SELECT COUNT(*) FROM information_schema.tables
+     WHERE table_schema = 'lab09' AND table_type = 'BASE TABLE') AS table_count,
+    (SELECT COUNT(*) FROM pg_constraint AS c
+     JOIN pg_namespace AS n ON n.oid = c.connamespace
+     WHERE n.nspname = 'lab09' AND c.contype = 'f') AS foreign_key_count;
+ table_count | foreign_key_count 
+-------------+-------------------
+           7 |                 6
+(1 row)
+
