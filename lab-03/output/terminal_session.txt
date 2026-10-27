@@ -1,0 +1,117 @@
+
+========== PostgreSQL client ==========
+psql (PostgreSQL) 18.6 (Homebrew)
+
+========== Execute Lab 03 SQL ==========
+-- Lab 03: Basic psql Commands (SQL sample used for inspection)
+-- Student: Aizirek Myrzabayeva
+-- Sample: Campus Events, all entries are fictional.
+-- PostgreSQL 18; execute from the repository root using:
+-- psql -d postgres -v ON_ERROR_STOP=1 -f lab-03/lab_03.sql
+CREATE SCHEMA IF NOT EXISTS lab03;
+CREATE SCHEMA
+CREATE TABLE IF NOT EXISTS lab03.campus_events (
+    event_id INTEGER PRIMARY KEY,
+    event_title VARCHAR(100) NOT NULL,
+    location VARCHAR(80) NOT NULL,
+    capacity INTEGER NOT NULL CHECK (capacity > 0)
+);
+CREATE TABLE
+INSERT INTO lab03.campus_events (event_id, event_title, location, capacity)
+VALUES
+    (401, 'Research Poster Workshop', 'Innovation Studio', 28),
+    (402, 'Student Coding Circle', 'Computer Lab B', 24),
+    (403, 'Design Thinking Session', 'Collaboration Room', 35),
+    (404, 'Digital Storytelling Meetup', 'Media Space', 20)
+ON CONFLICT (event_id) DO UPDATE SET
+    event_title = EXCLUDED.event_title,
+    location = EXCLUDED.location,
+    capacity = EXCLUDED.capacity;
+INSERT 0 4
+SELECT event_id, event_title, location, capacity
+FROM lab03.campus_events
+ORDER BY event_id;
+ event_id |         event_title         |      location      | capacity 
+----------+-----------------------------+--------------------+----------
+      401 | Research Poster Workshop    | Innovation Studio  |       28
+      402 | Student Coding Circle       | Computer Lab B     |       24
+      403 | Design Thinking Session     | Collaboration Room |       35
+      404 | Digital Storytelling Meetup | Media Space        |       20
+(4 rows)
+
+
+========== Connection details ==========
+          Connection Information
+      Parameter       |       Value        
+----------------------+--------------------
+ Database             | postgres
+ Client User          | aizirekmyrzabayeva
+ Socket Directory     | /tmp
+ Server Port          | 5432
+ Options              | 
+ Protocol Version     | 3.0
+ Password Used        | false
+ GSSAPI Authenticated | false
+ Backend PID          | 69195
+ SSL Connection       | false
+ Superuser            | on
+ Hot Standby          | off
+(12 rows)
+
+
+========== List databases ==========
+                                                                     List of databases
+    Name    |       Owner        | Encoding | Locale Provider |   Collate   |    Ctype    | Locale | ICU Rules |             Access privileges             
+------------+--------------------+----------+-----------------+-------------+-------------+--------+-----------+-------------------------------------------
+ mydb       | aizirekmyrzabayeva | UTF8     | libc            | en_US.UTF-8 | en_US.UTF-8 |        |           | 
+ postgres   | aizirekmyrzabayeva | UTF8     | libc            | en_US.UTF-8 | en_US.UTF-8 |        |           | 
+ school     | aizirekmyrzabayeva | UTF8     | libc            | en_US.UTF-8 | en_US.UTF-8 |        |           | 
+ template0  | aizirekmyrzabayeva | UTF8     | libc            | en_US.UTF-8 | en_US.UTF-8 |        |           | =c/aizirekmyrzabayeva                    +
+            |                    |          |                 |             |             |        |           | aizirekmyrzabayeva=CTc/aizirekmyrzabayeva
+ template1  | aizirekmyrzabayeva | UTF8     | libc            | en_US.UTF-8 | en_US.UTF-8 |        |           | =c/aizirekmyrzabayeva                    +
+            |                    |          |                 |             |             |        |           | aizirekmyrzabayeva=CTc/aizirekmyrzabayeva
+ university | aizirekmyrzabayeva | UTF8     | libc            | en_US.UTF-8 | en_US.UTF-8 |        |           | 
+(6 rows)
+
+
+========== List schemas ==========
+       List of schemas
+  Name  |       Owner        
+--------+--------------------
+ lab01  | aizirekmyrzabayeva
+ lab03  | aizirekmyrzabayeva
+ public | pg_database_owner
+(3 rows)
+
+
+========== Lab03 tables ==========
+                   List of tables
+ Schema |     Name      | Type  |       Owner        
+--------+---------------+-------+--------------------
+ lab03  | campus_events | table | aizirekmyrzabayeva
+(1 row)
+
+
+========== Inspect example table ==========
+                      Table "lab03.campus_events"
+   Column    |          Type          | Collation | Nullable | Default 
+-------------+------------------------+-----------+----------+---------
+ event_id    | integer                |           | not null | 
+ event_title | character varying(100) |           | not null | 
+ location    | character varying(80)  |           | not null | 
+ capacity    | integer                |           | not null | 
+Indexes:
+    "campus_events_pkey" PRIMARY KEY, btree (event_id)
+Check constraints:
+    "campus_events_capacity_check" CHECK (capacity > 0)
+
+
+========== Query records ==========
+ event_id |         event_title         |      location      | capacity 
+----------+-----------------------------+--------------------+----------
+      401 | Research Poster Workshop    | Innovation Studio  |       28
+      402 | Student Coding Circle       | Computer Lab B     |       24
+      403 | Design Thinking Session     | Collaboration Room |       35
+      404 | Digital Storytelling Meetup | Media Space        |       20
+(4 rows)
+
