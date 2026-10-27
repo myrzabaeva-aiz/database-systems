@@ -1,0 +1,35 @@
+PASS Private cluster reachable
+PASS Fictional dataset and relationships
+PASS CSV export with header
+PASS CSV round-trip content
+PASS UTF-8 Cyrillic round-trip
+PASS Custom delimiter and NULL
+PASS Embedded quotes, commas, multiline CSV
+PASS Selected-column query export
+PASS Selected-column import and generated ID
+PASS COPY ON_ERROR ignore skips invalid conversion
+PASS CSV date FORCE_QUOTE
+PASS Explicit NULL preserved
+PASS Plain SQL backup exists
+PASS Custom archive catalog
+PASS Plain SQL restore matches data
+PASS Parallel custom restore matches data
+PASS View restored
+PASS Role grant preserved in same cluster
+PASS Schema-only restore has no records
+PASS Data-only restore matches source
+PASS Selected-table restore
+PASS Excluded table absent
+PASS Cluster roles exported separately
+PASS ETL trim, lowercase and upsert
+PASS Single partition migration
+PASS Timestamped verified daily archive
+PASS Seven-day retention scoped to database
+PASS Source data intact after migrations
+PASS Full physical base backup verified
+PASS Compressed base backup created
+PASS Deletion committed on primary
+PASS WAL segment containing restore point archived
+PASS Incremental backup combined and verified
+PASS PITR restores pre-deletion snapshot: 1,2
+34 checks passed

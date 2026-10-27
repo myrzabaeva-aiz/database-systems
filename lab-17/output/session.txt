@@ -1,0 +1,731 @@
+$ initdb -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/primary -U lab17_owner --auth-local=trust --auth-host=reject --encoding=UTF8 --locale=C
+The files belonging to this database system will be owned by user "aizirekmyrzabayeva".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "C".
+The default text search configuration will be set to "english".
+
+Data page checksums are enabled.
+
+creating directory /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/primary ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default "max_connections" ... 100
+selecting default "shared_buffers" ... 128MB
+selecting default time zone ... Asia/Bishkek
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+
+Success. You can now start the database server using:
+
+    pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/primary -l logfile start
+[exit=0]
+
+$ pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/primary -l /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/primary.log -w start
+waiting for server to start.... done
+server started
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT current_user || '|' || current_database()
+lab17_owner|postgres
+[exit=0]
+
+PASS Private cluster reachable
+$ psql -X -v ON_ERROR_STOP=1 -P pager=off -d postgres -f /Users/aizirekmyrzabayeva/database-systems/lab-17/setup.sql
+CREATE TABLE
+INSERT 0 2
+CREATE TABLE
+INSERT 0 3
+CREATE VIEW
+CREATE TABLE
+INSERT 0 3
+CREATE TABLE
+INSERT 0 2
+CREATE TABLE
+INSERT 0 1
+CREATE TABLE
+INSERT 0 1
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+INSERT 0 2
+CREATE ROLE
+GRANT
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT COUNT(*) || '|' || md5(string_agg(to_jsonb(t)::text,';' ORDER BY participant_id)) FROM public.participants t;
+3|5df5563e89af67f15703634300bc377f
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT COUNT(*) FROM programs
+2
+[exit=0]
+
+PASS Fictional dataset and relationships
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.participants TO '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/participants.csv' WITH (FORMAT csv, HEADER true)
+COPY 3
+[exit=0]
+
+PASS CSV export with header
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c CREATE TABLE participants_import (LIKE participants INCLUDING ALL)
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.participants_import FROM '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/participants.csv' WITH (FORMAT csv, HEADER true)
+COPY 3
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT COUNT(*) FROM ((SELECT * FROM participants EXCEPT ALL SELECT * FROM participants_import) UNION ALL (SELECT * FROM participants_import EXCEPT ALL SELECT * FROM participants)) d
+0
+[exit=0]
+
+PASS CSV round-trip content
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT first_name FROM participants_import WHERE participant_id=2
+Айпери
+[exit=0]
+
+PASS UTF-8 Cyrillic round-trip
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.participants TO '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/participants-semicolon.csv' WITH (FORMAT csv, HEADER true, DELIMITER ';', NULL 'MISSING')
+COPY 3
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c TRUNCATE participants_import
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.participants_import FROM '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/participants-semicolon.csv' WITH (FORMAT csv, HEADER true, DELIMITER ';', NULL 'MISSING')
+COPY 3
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT COUNT(*) FROM participants_import WHERE email IS NULL
+1
+[exit=0]
+
+PASS Custom delimiter and NULL
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.feedback TO '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/feedback.csv' WITH (FORMAT csv, HEADER true)
+COPY 3
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c CREATE TABLE feedback_import (LIKE feedback INCLUDING ALL)
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.feedback_import FROM '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/feedback.csv' WITH (FORMAT csv, HEADER true)
+COPY 3
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT COUNT(*) FROM ((SELECT * FROM feedback EXCEPT ALL SELECT * FROM feedback_import) UNION ALL (SELECT * FROM feedback_import EXCEPT ALL SELECT * FROM feedback)) x
+0
+[exit=0]
+
+PASS Embedded quotes, commas, multiline CSV
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy (SELECT participant_id, first_name FROM public.participants WHERE program_id=10 ORDER BY participant_id) TO '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/digital-participants.csv' WITH (FORMAT csv, HEADER true)
+COPY 2
+[exit=0]
+
+PASS Selected-column query export
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c CREATE TABLE new_members(id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, first_name TEXT NOT NULL)
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.new_members(first_name) FROM '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/new-members.csv' WITH (FORMAT csv, HEADER true)
+COPY 2
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT STRING_AGG(id::text || ':' || first_name,',' ORDER BY id) FROM new_members
+1:Dana,2:Nursultan
+[exit=0]
+
+PASS Selected-column import and generated ID
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c CREATE TABLE imported_numbers(code INTEGER, amount INTEGER)
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.imported_numbers FROM '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/numbers.csv' WITH (FORMAT csv, HEADER true, ON_ERROR ignore)
+COPY 2
+NOTICE:  1 row was skipped due to data type incompatibility
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT STRING_AGG(code::text,',' ORDER BY code) FROM imported_numbers
+1,3
+[exit=0]
+
+PASS COPY ON_ERROR ignore skips invalid conversion
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy public.participants TO '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/dated-participants.csv' WITH (FORMAT csv, HEADER true, FORCE_QUOTE(joined_on))
+COPY 3
+[exit=0]
+
+PASS CSV date FORCE_QUOTE
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT email IS NULL FROM participants WHERE participant_id=2
+t
+[exit=0]
+
+PASS Explicit NULL preserved
+$ pg_dump -d postgres --no-owner -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/backup.sql
+[exit=0]
+
+PASS Plain SQL backup exists
+$ pg_dump -d postgres -Fc -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/backup.dump
+[exit=0]
+
+$ pg_restore --list /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/backup.dump
+;
+; Archive created at 2026-10-27 18:33:15 +06
+;     dbname: postgres
+;     TOC Entries: 49
+;     Compression: gzip
+;     Dump Version: 1.16-0
+;     Format: CUSTOM
+;     Integer: 4 bytes
+;     Offset: 8 bytes
+;     Dumped from database version: 18.6 (Homebrew)
+;     Dumped by pg_dump version: 18.6 (Homebrew)
+;
+;
+; Selected TOC Entries:
+;
+225; 1259 16447 TABLE public daily_log lab17_owner
+220; 1259 16395 TABLE public participants lab17_owner
+3943; 0 0 ACL public TABLE participants lab17_owner
+221; 1259 16414 VIEW public digital_participants lab17_owner
+222; 1259 16418 TABLE public feedback lab17_owner
+230; 1259 16493 TABLE public feedback_import lab17_owner
+233; 1259 16512 TABLE public imported_numbers lab17_owner
+232; 1259 16503 TABLE public new_members lab17_owner
+231; 1259 16502 SEQUENCE public new_members_id_seq lab17_owner
+229; 1259 16474 TABLE public participants_import lab17_owner
+223; 1259 16427 TABLE public products lab17_owner
+219; 1259 16384 TABLE public programs lab17_owner
+224; 1259 16438 TABLE public recovery_items lab17_owner
+226; 1259 16455 TABLE public sales lab17_owner
+227; 1259 16461 TABLE public sales_2025 lab17_owner
+228; 1259 16467 TABLE public sales_2026 lab17_owner
+3747; 0 0 TABLE ATTACH public sales_2025 lab17_owner
+3748; 0 0 TABLE ATTACH public sales_2026 lab17_owner
+3928; 0 16447 TABLE DATA public daily_log lab17_owner
+3925; 0 16418 TABLE DATA public feedback lab17_owner
+3932; 0 16493 TABLE DATA public feedback_import lab17_owner
+3935; 0 16512 TABLE DATA public imported_numbers lab17_owner
+3934; 0 16503 TABLE DATA public new_members lab17_owner
+3924; 0 16395 TABLE DATA public participants lab17_owner
+3931; 0 16474 TABLE DATA public participants_import lab17_owner
+3926; 0 16427 TABLE DATA public products lab17_owner
+3923; 0 16384 TABLE DATA public programs lab17_owner
+3927; 0 16438 TABLE DATA public recovery_items lab17_owner
+3929; 0 16461 TABLE DATA public sales_2025 lab17_owner
+3930; 0 16467 TABLE DATA public sales_2026 lab17_owner
+3944; 0 0 SEQUENCE SET public new_members_id_seq lab17_owner
+3765; 2606 16454 CONSTRAINT public daily_log daily_log_pkey lab17_owner
+3771; 2606 16501 CONSTRAINT public feedback_import feedback_import_pkey lab17_owner
+3759; 2606 16426 CONSTRAINT public feedback feedback_pkey lab17_owner
+3773; 2606 16511 CONSTRAINT public new_members new_members_pkey lab17_owner
+3767; 2606 16487 CONSTRAINT public participants_import participants_import_email_key lab17_owner
+3769; 2606 16485 CONSTRAINT public participants_import participants_import_pkey lab17_owner
+3755; 2606 16406 CONSTRAINT public participants participants_pkey lab17_owner
+3761; 2606 16437 CONSTRAINT public products products_pkey lab17_owner
+3751; 2606 16392 CONSTRAINT public programs programs_pkey lab17_owner
+3753; 2606 16394 CONSTRAINT public programs programs_program_name_key lab17_owner
+3763; 2606 16446 CONSTRAINT public recovery_items recovery_items_pkey lab17_owner
+3757; 2606 16408 CONSTRAINT public participants unique_participant_email lab17_owner
+3774; 2606 16409 FK CONSTRAINT public participants participants_program_id_fkey lab17_owner
+[exit=0]
+
+PASS Custom archive catalog
+$ createdb -T template0 plain_restore
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -P pager=off -d plain_restore -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/backup.sql
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+SET
+SET
+CREATE TABLE
+CREATE TABLE
+CREATE VIEW
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+COPY 1
+COPY 3
+COPY 3
+COPY 2
+COPY 2
+COPY 3
+COPY 3
+COPY 2
+COPY 2
+COPY 1
+COPY 1
+COPY 1
+ setval 
+--------
+      2
+(1 row)
+
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+GRANT
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d plain_restore -c SELECT COUNT(*) || '|' || md5(string_agg(to_jsonb(t)::text,';' ORDER BY participant_id)) FROM public.participants t;
+3|5df5563e89af67f15703634300bc377f
+[exit=0]
+
+PASS Plain SQL restore matches data
+$ createdb -T template0 custom_restore
+[exit=0]
+
+$ pg_restore --exit-on-error --no-owner -j 2 -d custom_restore /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/backup.dump
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d custom_restore -c SELECT COUNT(*) || '|' || md5(string_agg(to_jsonb(t)::text,';' ORDER BY participant_id)) FROM public.participants t;
+3|5df5563e89af67f15703634300bc377f
+[exit=0]
+
+PASS Parallel custom restore matches data
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d custom_restore -c SELECT COUNT(*) FROM digital_participants
+2
+[exit=0]
+
+PASS View restored
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d custom_restore -c SELECT has_table_privilege('lab17_reader','participants','SELECT')
+t
+[exit=0]
+
+PASS Role grant preserved in same cluster
+$ pg_dump -d postgres -s --no-owner -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/schema-only.sql
+[exit=0]
+
+$ pg_dump -d postgres -a --no-owner -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/data-only.sql
+[exit=0]
+
+$ createdb -T template0 split_restore
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -P pager=off -d split_restore -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/schema-only.sql
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+SET
+SET
+CREATE TABLE
+CREATE TABLE
+CREATE VIEW
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+GRANT
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d split_restore -c SELECT COUNT(*) FROM participants
+0
+[exit=0]
+
+PASS Schema-only restore has no records
+$ psql -X -v ON_ERROR_STOP=1 -P pager=off -d split_restore -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/data-only.sql
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+COPY 1
+COPY 3
+COPY 3
+COPY 2
+COPY 2
+COPY 2
+COPY 3
+COPY 3
+COPY 2
+COPY 1
+COPY 1
+COPY 1
+ setval 
+--------
+      2
+(1 row)
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d split_restore -c SELECT COUNT(*) || '|' || md5(string_agg(to_jsonb(t)::text,';' ORDER BY participant_id)) FROM public.participants t;
+3|5df5563e89af67f15703634300bc377f
+[exit=0]
+
+PASS Data-only restore matches source
+$ createdb -T template0 single_table
+[exit=0]
+
+$ pg_restore --exit-on-error --no-owner -d single_table -t feedback /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/backup.dump
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d single_table -c SELECT COUNT(*) FROM feedback
+3
+[exit=0]
+
+PASS Selected-table restore
+$ pg_dump -d postgres --no-owner -T public.daily_log -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/without-log.sql
+[exit=0]
+
+$ createdb -T template0 no_log
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -P pager=off -d no_log -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/without-log.sql
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+SET
+SET
+CREATE TABLE
+CREATE VIEW
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+COPY 3
+COPY 3
+COPY 2
+COPY 2
+COPY 3
+COPY 3
+COPY 2
+COPY 2
+COPY 1
+COPY 1
+COPY 1
+ setval 
+--------
+      2
+(1 row)
+
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+GRANT
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d no_log -c SELECT to_regclass('public.daily_log') IS NULL
+t
+[exit=0]
+
+PASS Excluded table absent
+$ pg_dumpall --globals-only --no-role-passwords -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/roles.sql
+[exit=0]
+
+PASS Cluster roles exported separately
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c CREATE TABLE target_contacts (contact_id INTEGER PRIMARY KEY, name TEXT, email TEXT)
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c INSERT INTO target_contacts VALUES(1,'Old entry','old@example.org')
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c CREATE TABLE staging_contacts(contact_id INTEGER, name TEXT, email TEXT)
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -d postgres -c \copy staging_contacts FROM '/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/contacts.csv' WITH (FORMAT csv, HEADER true)
+COPY 2
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c INSERT INTO target_contacts SELECT contact_id, btrim(name), lower(btrim(email)) FROM staging_contacts ON CONFLICT(contact_id) DO UPDATE SET name=EXCLUDED.name, email=EXCLUDED.email
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT COUNT(*) || '|' || MIN(email) FROM target_contacts
+2|amina@example.org
+[exit=0]
+
+PASS ETL trim, lowercase and upsert
+$ pg_dump -d postgres -t public.sales_2025 --no-owner -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/partitions.sql
+[exit=0]
+
+$ createdb -T template0 partition_move
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d partition_move -c CREATE TABLE sales(sale_id INTEGER,sold_on DATE,amount NUMERIC(10,2)) PARTITION BY RANGE (sold_on)
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -P pager=off -d partition_move -f /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/partitions.sql
+SET
+SET
+SET
+SET
+SET
+SET
+ set_config 
+------------
+ 
+(1 row)
+
+SET
+SET
+SET
+SET
+SET
+SET
+CREATE TABLE
+ALTER TABLE
+COPY 1
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d partition_move -c SELECT COUNT(*) || '|' || SUM(amount) FROM sales_2025
+1|150.00
+[exit=0]
+
+PASS Single partition migration
+$ sh /Users/aizirekmyrzabayeva/database-systems/lab-17/backup.sh postgres /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/daily
+Backup created and validated: /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/daily/postgres_20261027_123316_12154.dump
+[exit=0]
+
+$ pg_restore --list /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/daily/postgres_20261027_123316_12154.dump
+;
+; Archive created at 2026-10-27 18:33:16 +06
+;     dbname: postgres
+;     TOC Entries: 54
+;     Compression: gzip
+;     Dump Version: 1.16-0
+;     Format: CUSTOM
+;     Integer: 4 bytes
+;     Offset: 8 bytes
+;     Dumped from database version: 18.6 (Homebrew)
+;     Dumped by pg_dump version: 18.6 (Homebrew)
+;
+;
+; Selected TOC Entries:
+;
+225; 1259 16447 TABLE public daily_log lab17_owner
+220; 1259 16395 TABLE public participants lab17_owner
+3955; 0 0 ACL public TABLE participants lab17_owner
+221; 1259 16414 VIEW public digital_participants lab17_owner
+222; 1259 16418 TABLE public feedback lab17_owner
+230; 1259 16493 TABLE public feedback_import lab17_owner
+233; 1259 16512 TABLE public imported_numbers lab17_owner
+232; 1259 16503 TABLE public new_members lab17_owner
+231; 1259 16502 SEQUENCE public new_members_id_seq lab17_owner
+229; 1259 16474 TABLE public participants_import lab17_owner
+223; 1259 16427 TABLE public products lab17_owner
+219; 1259 16384 TABLE public programs lab17_owner
+224; 1259 16438 TABLE public recovery_items lab17_owner
+226; 1259 16455 TABLE public sales lab17_owner
+227; 1259 16461 TABLE public sales_2025 lab17_owner
+228; 1259 16467 TABLE public sales_2026 lab17_owner
+235; 1259 17057 TABLE public staging_contacts lab17_owner
+234; 1259 17049 TABLE public target_contacts lab17_owner
+3755; 0 0 TABLE ATTACH public sales_2025 lab17_owner
+3756; 0 0 TABLE ATTACH public sales_2026 lab17_owner
+3938; 0 16447 TABLE DATA public daily_log lab17_owner
+3935; 0 16418 TABLE DATA public feedback lab17_owner
+3942; 0 16493 TABLE DATA public feedback_import lab17_owner
+3945; 0 16512 TABLE DATA public imported_numbers lab17_owner
+3944; 0 16503 TABLE DATA public new_members lab17_owner
+3934; 0 16395 TABLE DATA public participants lab17_owner
+3941; 0 16474 TABLE DATA public participants_import lab17_owner
+3936; 0 16427 TABLE DATA public products lab17_owner
+3933; 0 16384 TABLE DATA public programs lab17_owner
+3937; 0 16438 TABLE DATA public recovery_items lab17_owner
+3939; 0 16461 TABLE DATA public sales_2025 lab17_owner
+3940; 0 16467 TABLE DATA public sales_2026 lab17_owner
+3947; 0 17057 TABLE DATA public staging_contacts lab17_owner
+3946; 0 17049 TABLE DATA public target_contacts lab17_owner
+3956; 0 0 SEQUENCE SET public new_members_id_seq lab17_owner
+3773; 2606 16454 CONSTRAINT public daily_log daily_log_pkey lab17_owner
+3779; 2606 16501 CONSTRAINT public feedback_import feedback_import_pkey lab17_owner
+3767; 2606 16426 CONSTRAINT public feedback feedback_pkey lab17_owner
+3781; 2606 16511 CONSTRAINT public new_members new_members_pkey lab17_owner
+3775; 2606 16487 CONSTRAINT public participants_import participants_import_email_key lab17_owner
+3777; 2606 16485 CONSTRAINT public participants_import participants_import_pkey lab17_owner
+3763; 2606 16406 CONSTRAINT public participants participants_pkey lab17_owner
+3769; 2606 16437 CONSTRAINT public products products_pkey lab17_owner
+3759; 2606 16392 CONSTRAINT public programs programs_pkey lab17_owner
+3761; 2606 16394 CONSTRAINT public programs programs_program_name_key lab17_owner
+3771; 2606 16446 CONSTRAINT public recovery_items recovery_items_pkey lab17_owner
+3783; 2606 17056 CONSTRAINT public target_contacts target_contacts_pkey lab17_owner
+3765; 2606 16408 CONSTRAINT public participants unique_participant_email lab17_owner
+3784; 2606 16409 FK CONSTRAINT public participants participants_program_id_fkey lab17_owner
+[exit=0]
+
+PASS Timestamped verified daily archive
+PASS Seven-day retention scoped to database
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT COUNT(*) || '|' || md5(string_agg(to_jsonb(t)::text,';' ORDER BY participant_id)) FROM public.participants t;
+3|5df5563e89af67f15703634300bc377f
+[exit=0]
+
+PASS Source data intact after migrations
+$ pg_basebackup -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/base -X stream -c fast
+[exit=0]
+
+$ pg_verifybackup /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/base
+backup successfully verified
+[exit=0]
+
+PASS Full physical base backup verified
+$ pg_basebackup -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/compressed_base -Ft -z -X stream -c fast
+[exit=0]
+
+PASS Compressed base backup created
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c INSERT INTO recovery_items VALUES (2,'Saved before deletion')
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT pg_create_restore_point('lab17_pre_delete')
+0/6000200
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c DELETE FROM recovery_items WHERE item_id=1
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT pg_walfile_name(pg_current_wal_lsn())
+000000010000000000000006
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT pg_switch_wal()
+0/6000278
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c SELECT COUNT(*) FROM recovery_items WHERE item_id=1
+0
+[exit=0]
+
+PASS Deletion committed on primary
+PASS WAL segment containing restore point archived
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c INSERT INTO recovery_items VALUES (3,'Incremental addition')
+[exit=0]
+
+$ psql -X -v ON_ERROR_STOP=1 -qAt -P pager=off -d postgres -c CHECKPOINT
+[exit=0]
+
+$ pg_basebackup -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/incremental -X stream -c fast --incremental=/var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/base/backup_manifest
+[exit=0]
+
+$ pg_combinebackup -o /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/combined /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/base /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/incremental
+[exit=0]
+
+$ pg_verifybackup /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/combined
+backup successfully verified
+[exit=0]
+
+PASS Incremental backup combined and verified
+$ pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/pitr_restore -l /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/pitr_restore.log -w start
+waiting for server to start.... done
+server started
+[exit=0]
+
+$ psql -X -qAt -v ON_ERROR_STOP=1 -d postgres -c SELECT STRING_AGG(item_id::text, ',' ORDER BY item_id) FROM recovery_items
+1,2
+[exit=0]
+
+PASS PITR restores pre-deletion snapshot: 1,2
+$ pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/pitr_restore -m fast -w stop
+waiting for server to shut down.... done
+server stopped
+[exit=0]
+
+$ pg_ctl -D /var/folders/9x/6gqz_kjn2nl21b49vvtn2y3m0000gn/T/aizirek_lab17_n236tx8_/primary -m fast -w stop
+waiting for server to shut down.... done
+server stopped
+[exit=0]
+
