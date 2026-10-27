@@ -1,0 +1,361 @@
+LAB 15 — ADVANCED QUERYING
+Student: Aizirek Myrzabayeva
+
+$ psql --version
+psql (PostgreSQL) 18.6 (Homebrew)
+
+$ psql -X -a -v ON_ERROR_STOP=1 -P pager=off -d postgres -f lab-15/psql-demo.sql
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+\ir lab15.sql
+-- Lab 15: Advanced Querying
+-- Student: Aizirek Myrzabayeva
+-- Fictional case study: Youth Innovation Program Operations
+-- WARNING: Rerunning this file replaces ONLY the lab15 schema and its objects.
+DROP SCHEMA IF EXISTS lab15 CASCADE;
+psql:/Users/aizirekmyrzabayeva/database-systems/lab-15/lab15.sql:6: NOTICE:  schema "lab15" does not exist, skipping
+DROP SCHEMA
+CREATE SCHEMA lab15;
+CREATE SCHEMA
+SET search_path TO lab15, pg_catalog;
+SET
+-- 1. Reproducible data for subqueries, hierarchies, and window functions.
+CREATE TABLE staff (
+    staff_id INTEGER PRIMARY KEY,
+    first_name VARCHAR(60) NOT NULL,
+    last_name VARCHAR(60) NOT NULL,
+    team_name VARCHAR(40) NOT NULL,
+    monthly_pay NUMERIC(10,2) NOT NULL CHECK (monthly_pay > 0),
+    experience_years INTEGER NOT NULL CHECK (experience_years >= 0),
+    email VARCHAR(120) UNIQUE,
+    manager_id INTEGER REFERENCES staff(staff_id)
+);
+CREATE TABLE
+INSERT INTO staff (staff_id, first_name, last_name, team_name, monthly_pay,
+                   experience_years, email, manager_id) VALUES
+    (1, 'Alina',   'Idrisova',      'Programmes',   125000, 14, 'alina@demo.example', NULL),
+    (2, 'Timur',   'Kasymov',      'Programmes',    90000,  8, 'timur@demo.example', 1),
+    (3, 'Aigerim', 'Talantbek',    'Media',         80000,  7, 'aigerim@demo.example', 1),
+    (4, 'Nurlan',  'Shadiev',      'Media',         60000,  2, 'nurlan@demo.example', 3),
+    (5, 'Malika',  'Bekova',       'Partnerships',  55000,  5, 'malika@demo.example', 1),
+    (6, 'Sezim',   'Abdykadyrova', 'Media',         80000,  8, 'sezim@demo.example', 3),
+    (7, 'Daniyar', 'Usubov',       'Media',         70000,  4, 'daniyar@demo.example', 3),
+    (8, 'Farida',  'Osmonova',     'Partnerships',  58000,  3, 'farida@demo.example', 5),
+    (9, 'Elina',   'Chyngyz',      'Media',         50000,  1, 'elina@demo.example', 3);
+INSERT 0 9
+CREATE TABLE contributions (
+    contribution_id INTEGER PRIMARY KEY,
+    staff_id INTEGER NOT NULL REFERENCES staff(staff_id),
+    contribution_amount NUMERIC(10,2) NOT NULL CHECK (contribution_amount >= 0),
+    contribution_date DATE NOT NULL
+);
+CREATE TABLE
+INSERT INTO contributions VALUES
+    (1, 3, 1000.00, DATE '2026-03-05'),
+    (2, 6, 750.00,  DATE '2026-03-12'),
+    (3, 8, 400.00,  DATE '2026-04-01'),
+    (4, 5, 1600.00, DATE '2026-04-09');
+INSERT 0 4
+-- 2. Scalar subquery: employees earning above the organization average.
+SELECT first_name, team_name, monthly_pay
+FROM staff
+WHERE monthly_pay > (SELECT AVG(monthly_pay) FROM staff)
+ORDER BY monthly_pay DESC, staff_id;
+ first_name | team_name  | monthly_pay 
+------------+------------+-------------
+ Alina      | Programmes |   125000.00
+ Timur      | Programmes |    90000.00
+ Aigerim    | Media      |    80000.00
+ Sezim      | Media      |    80000.00
+(4 rows)
+
+-- 3. Row subquery: staff with the same (team, pay) as Aigerim.
+SELECT first_name, team_name, monthly_pay
+FROM staff
+WHERE (team_name, monthly_pay) =
+      (SELECT team_name, monthly_pay FROM staff WHERE staff_id = 3)
+ORDER BY staff_id;
+ first_name | team_name | monthly_pay 
+------------+-----------+-------------
+ Aigerim    | Media     |    80000.00
+ Sezim      | Media     |    80000.00
+(2 rows)
+
+-- 4. Table subquery in FROM: teams above a chosen average-pay threshold.
+SELECT team_name, ROUND(avg_pay, 2) AS average_pay
+FROM (
+    SELECT team_name, AVG(monthly_pay) AS avg_pay
+    FROM staff
+    GROUP BY team_name
+) AS team_summary
+WHERE avg_pay > 65000
+ORDER BY team_name;
+ team_name  | average_pay 
+------------+-------------
+ Media      |    68000.00
+ Programmes |   107500.00
+(2 rows)
+
+-- 5. CTE: team-level contributions greater than 1500.
+WITH team_contributions AS (
+    SELECT s.team_name, SUM(c.contribution_amount) AS total_amount
+    FROM contributions AS c
+    JOIN staff AS s USING (staff_id)
+    GROUP BY s.team_name
+)
+SELECT team_name, total_amount
+FROM team_contributions
+WHERE total_amount > 1500
+ORDER BY team_name;
+  team_name   | total_amount 
+--------------+--------------
+ Media        |      1750.00
+ Partnerships |      2000.00
+(2 rows)
+
+-- 6. Recursive CTE: organizational hierarchy with a path-based cycle guard.
+WITH RECURSIVE organization_chart AS (
+    SELECT staff_id, first_name, manager_id,
+           0 AS depth, ARRAY[staff_id] AS traversal_path
+    FROM staff
+    WHERE manager_id IS NULL
+    UNION ALL
+    SELECT s.staff_id, s.first_name, s.manager_id,
+           o.depth + 1, o.traversal_path || s.staff_id
+    FROM staff AS s
+    JOIN organization_chart AS o ON s.manager_id = o.staff_id
+    WHERE NOT s.staff_id = ANY(o.traversal_path)
+)
+SELECT staff_id, first_name, manager_id, depth
+FROM organization_chart
+ORDER BY traversal_path;
+ staff_id | first_name | manager_id | depth 
+----------+------------+------------+-------
+        1 | Alina      |            |     0
+        2 | Timur      |          1 |     1
+        3 | Aigerim    |          1 |     1
+        4 | Nurlan     |          3 |     2
+        6 | Sezim      |          3 |     2
+        7 | Daniyar    |          3 |     2
+        9 | Elina      |          3 |     2
+        5 | Malika     |          1 |     1
+        8 | Farida     |          5 |     2
+(9 rows)
+
+-- 7. Set operations: two overlapping equipment storage lists.
+CREATE TABLE storage_a (
+    item_id INTEGER PRIMARY KEY,
+    item_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity >= 0)
+);
+CREATE TABLE
+CREATE TABLE storage_b (LIKE storage_a INCLUDING ALL);
+CREATE TABLE
+INSERT INTO storage_a VALUES (10, 'Camera Kit', 0), (20, 'Wireless Microphone', 3);
+INSERT 0 2
+INSERT INTO storage_b VALUES (10, 'Camera Kit', 0), (30, 'LED Panel', 5);
+INSERT 0 2
+-- UNION discards duplicate Camera Kit; UNION ALL retains both rows.
+SELECT item_name FROM storage_a
+UNION
+SELECT item_name FROM storage_b
+ORDER BY item_name;
+      item_name      
+---------------------
+ Camera Kit
+ LED Panel
+ Wireless Microphone
+(3 rows)
+
+SELECT item_name FROM storage_a
+UNION ALL
+SELECT item_name FROM storage_b
+ORDER BY item_name;
+      item_name      
+---------------------
+ Camera Kit
+ Camera Kit
+ LED Panel
+ Wireless Microphone
+(4 rows)
+
+-- Out-of-stock items present in both storage locations.
+SELECT item_id FROM storage_a WHERE quantity = 0
+INTERSECT
+SELECT item_id FROM storage_b WHERE quantity = 0;
+ item_id 
+---------
+      10
+(1 row)
+
+-- Items only in storage A.
+SELECT item_name FROM storage_a
+EXCEPT
+SELECT item_name FROM storage_b;
+      item_name      
+---------------------
+ Wireless Microphone
+(1 row)
+
+-- 8. Salary rankings: tied values distinguish ROW_NUMBER, RANK and DENSE_RANK.
+SELECT staff_id, first_name, team_name, monthly_pay,
+       ROW_NUMBER() OVER (PARTITION BY team_name ORDER BY monthly_pay DESC, staff_id) AS row_number,
+       RANK() OVER (PARTITION BY team_name ORDER BY monthly_pay DESC) AS pay_rank,
+       DENSE_RANK() OVER (PARTITION BY team_name ORDER BY monthly_pay DESC) AS dense_pay_rank
+FROM staff
+ORDER BY team_name, monthly_pay DESC, staff_id;
+ staff_id | first_name |  team_name   | monthly_pay | row_number | pay_rank | dense_pay_rank 
+----------+------------+--------------+-------------+------------+----------+----------------
+        3 | Aigerim    | Media        |    80000.00 |          1 |        1 |              1
+        6 | Sezim      | Media        |    80000.00 |          2 |        1 |              1
+        7 | Daniyar    | Media        |    70000.00 |          3 |        3 |              2
+        4 | Nurlan     | Media        |    60000.00 |          4 |        4 |              3
+        9 | Elina      | Media        |    50000.00 |          5 |        5 |              4
+        8 | Farida     | Partnerships |    58000.00 |          1 |        1 |              1
+        5 | Malika     | Partnerships |    55000.00 |          2 |        2 |              2
+        1 | Alina      | Programmes   |   125000.00 |          1 |        1 |              1
+        2 | Timur      | Programmes   |    90000.00 |          2 |        2 |              2
+(9 rows)
+
+-- 9. Window aggregates, FILTER, LAG/LEAD and explicit running-total frame.
+SELECT staff_id, first_name, team_name,
+       monthly_pay,
+       SUM(monthly_pay) OVER (PARTITION BY team_name) AS team_payroll,
+       ROUND(AVG(monthly_pay) FILTER (WHERE experience_years > 5) OVER (), 2)
+           AS experienced_staff_average,
+       LAG(monthly_pay) OVER (ORDER BY staff_id) AS previous_pay,
+       LEAD(monthly_pay) OVER (ORDER BY staff_id) AS next_pay,
+       SUM(monthly_pay) OVER (
+           ORDER BY staff_id
+           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+       ) AS running_payroll
+FROM staff
+ORDER BY staff_id;
+ staff_id | first_name |  team_name   | monthly_pay | team_payroll | experienced_staff_average | previous_pay | next_pay | running_payroll 
+----------+------------+--------------+-------------+--------------+---------------------------+--------------+----------+-----------------
+        1 | Alina      | Programmes   |   125000.00 |    215000.00 |                  93750.00 |              | 90000.00 |       125000.00
+        2 | Timur      | Programmes   |    90000.00 |    215000.00 |                  93750.00 |    125000.00 | 80000.00 |       215000.00
+        3 | Aigerim    | Media        |    80000.00 |    340000.00 |                  93750.00 |     90000.00 | 60000.00 |       295000.00
+        4 | Nurlan     | Media        |    60000.00 |    340000.00 |                  93750.00 |     80000.00 | 55000.00 |       355000.00
+        5 | Malika     | Partnerships |    55000.00 |    113000.00 |                  93750.00 |     60000.00 | 80000.00 |       410000.00
+        6 | Sezim      | Media        |    80000.00 |    340000.00 |                  93750.00 |     55000.00 | 70000.00 |       490000.00
+        7 | Daniyar    | Media        |    70000.00 |    340000.00 |                  93750.00 |     80000.00 | 58000.00 |       560000.00
+        8 | Farida     | Partnerships |    58000.00 |    113000.00 |                  93750.00 |     70000.00 | 50000.00 |       618000.00
+        9 | Elina      | Media        |    50000.00 |    340000.00 |                  93750.00 |     58000.00 |          |       668000.00
+(9 rows)
+
+-- 10. Pivot and unpivot participation metrics.
+CREATE TABLE annual_participation (
+    program_name TEXT NOT NULL,
+    report_year INTEGER NOT NULL,
+    participant_count INTEGER NOT NULL CHECK (participant_count >= 0),
+    PRIMARY KEY (program_name, report_year)
+);
+CREATE TABLE
+INSERT INTO annual_participation VALUES
+    ('Digital Skills', 2024, 40), ('Digital Skills', 2025, 65), ('Digital Skills', 2026, 90),
+    ('Leadership Lab', 2024, 30), ('Leadership Lab', 2025, 45), ('Leadership Lab', 2026, 60);
+INSERT 0 6
+CREATE VIEW pivoted_participation AS
+SELECT program_name,
+       SUM(CASE WHEN report_year = 2024 THEN participant_count ELSE 0 END) AS year_2024,
+       SUM(CASE WHEN report_year = 2025 THEN participant_count ELSE 0 END) AS year_2025,
+       SUM(CASE WHEN report_year = 2026 THEN participant_count ELSE 0 END) AS year_2026
+FROM annual_participation
+GROUP BY program_name;
+CREATE VIEW
+SELECT * FROM pivoted_participation ORDER BY program_name;
+  program_name  | year_2024 | year_2025 | year_2026 
+----------------+-----------+-----------+-----------
+ Digital Skills |        40 |        65 |        90
+ Leadership Lab |        30 |        45 |        60
+(2 rows)
+
+SELECT program_name, 2024 AS report_year, year_2024 AS participant_count
+FROM pivoted_participation
+UNION ALL
+SELECT program_name, 2025 AS report_year, year_2025 AS participant_count
+FROM pivoted_participation
+UNION ALL
+SELECT program_name, 2026 AS report_year, year_2026 AS participant_count
+FROM pivoted_participation
+ORDER BY program_name, report_year;
+  program_name  | report_year | participant_count 
+----------------+-------------+-------------------
+ Digital Skills |        2024 |                40
+ Digital Skills |        2025 |                65
+ Digital Skills |        2026 |                90
+ Leadership Lab |        2024 |                30
+ Leadership Lab |        2025 |                45
+ Leadership Lab |        2026 |                60
+(6 rows)
+
+-- 11. Custom priority ordering with CASE.
+CREATE TABLE program_tasks (
+    task_name TEXT NOT NULL,
+    priority TEXT NOT NULL CHECK (priority IN ('High', 'Medium', 'Low'))
+);
+CREATE TABLE
+INSERT INTO program_tasks VALUES
+    ('Venue accessibility review', 'Medium'),
+    ('Safeguarding briefing', 'High'),
+    ('Newsletter formatting', 'Low');
+INSERT 0 3
+SELECT task_name, priority
+FROM program_tasks
+ORDER BY CASE priority
+            WHEN 'High' THEN 1
+            WHEN 'Medium' THEN 2
+            WHEN 'Low' THEN 3
+            ELSE 4
+         END, task_name;
+         task_name          | priority 
+----------------------------+----------
+ Safeguarding briefing      | High
+ Venue accessibility review | Medium
+ Newsletter formatting      | Low
+(3 rows)
+
+-- 12. Query planning and index demonstration.
+CREATE INDEX idx_lab15_staff_team_pay ON staff(team_name, monthly_pay);
+CREATE INDEX
+ANALYZE staff;
+ANALYZE
+EXPLAIN
+SELECT first_name, monthly_pay
+FROM staff
+WHERE team_name = 'Media' AND monthly_pay > 65000;
+                                      QUERY PLAN                                      
+--------------------------------------------------------------------------------------
+ Seq Scan on staff  (cost=0.00..1.14 rows=3 width=11)
+   Filter: ((monthly_pay > '65000'::numeric) AND ((team_name)::text = 'Media'::text))
+(2 rows)
+
+-- EXPLAIN ANALYZE really runs this read-only SELECT. Timings and plan vary by machine.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT first_name, monthly_pay
+FROM staff
+WHERE team_name = 'Media' AND monthly_pay > 65000
+ORDER BY monthly_pay DESC, staff_id
+LIMIT 10;
+                                                  QUERY PLAN                                                   
+---------------------------------------------------------------------------------------------------------------
+ Limit  (cost=1.16..1.17 rows=3 width=15) (actual time=0.010..0.011 rows=3.00 loops=1)
+   Buffers: shared hit=1
+   ->  Sort  (cost=1.16..1.17 rows=3 width=15) (actual time=0.010..0.010 rows=3.00 loops=1)
+         Sort Key: monthly_pay DESC, staff_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1
+         ->  Seq Scan on staff  (cost=0.00..1.14 rows=3 width=15) (actual time=0.005..0.006 rows=3.00 loops=1)
+               Filter: ((monthly_pay > '65000'::numeric) AND ((team_name)::text = 'Media'::text))
+               Rows Removed by Filter: 6
+               Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.056 ms
+ Execution Time: 0.018 ms
+(14 rows)
+
+RESET search_path;
+RESET
