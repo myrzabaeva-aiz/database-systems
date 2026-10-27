@@ -1,0 +1,78 @@
+Lab 05 — Databases
+Student: Aizirek Myrzabayeva
+
+$ psql --version
+psql (PostgreSQL) 18.6 (Homebrew)
+
+$ psql -X -a -v ON_ERROR_STOP=1 -P pager=off -d postgres -f lab-05/lab05.sql
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+-- Lab 05: Databases
+-- Student: Aizirek Myrzabayeva
+-- Run while connected to the 'postgres' maintenance database.
+-- Keep the permanent database; remove only our temporary demo database.
+-- 1. Create a personal practice database only if it does not already exist.
+SELECT format('CREATE DATABASE %I', 'aizirek_lab05')
+WHERE NOT EXISTS (
+    SELECT 1 FROM pg_database WHERE datname = 'aizirek_lab05'
+)
+\gexec
+CREATE DATABASE aizirek_lab05
+CREATE DATABASE
+-- 2. Create a unique disposable database, then delete that same database.
+-- A new backend PID gives each session a distinct demonstration name.
+SELECT 'aizirek_lab05_demo_' || pg_backend_pid() AS demo_db
+\gset
+\echo Creating temporary demonstration database :demo_db
+Creating temporary demonstration database aizirek_lab05_demo_78273
+CREATE DATABASE :"demo_db";
+CREATE DATABASE
+\echo Removing temporary demonstration database :demo_db
+Removing temporary demonstration database aizirek_lab05_demo_78273
+DROP DATABASE :"demo_db";
+DROP DATABASE
+-- Confirm that only the temporary demo was removed (expect 0 rows).
+SELECT datname AS remaining_demo_database
+FROM pg_database
+WHERE datname = :'demo_db';
+ remaining_demo_database 
+-------------------------
+(0 rows)
+
+-- 3. List the permanent database, then connect to it.
+\l aizirek_lab05
+                                                          List of databases
+     Name      |       Owner        | Encoding | Locale Provider |   Collate   |    Ctype    | Locale | ICU Rules | Access privileges 
+---------------+--------------------+----------+-----------------+-------------+-------------+--------+-----------+-------------------
+ aizirek_lab05 | aizirekmyrzabayeva | UTF8     | libc            | en_US.UTF-8 | en_US.UTF-8 |        |           | 
+(1 row)
+
+\connect aizirek_lab05
+You are now connected to database "aizirek_lab05" as user "aizirekmyrzabayeva".
+-- 4. Verify the active database and user.
+SELECT current_database() AS connected_database,
+       current_user AS connected_user;
+ connected_database |   connected_user   
+--------------------+--------------------
+ aizirek_lab05      | aizirekmyrzabayeva
+(1 row)
+
+\conninfo
+          Connection Information
+      Parameter       |       Value        
+----------------------+--------------------
+ Database             | aizirek_lab05
+ Client User          | aizirekmyrzabayeva
+ Socket Directory     | /tmp
+ Server Port          | 5432
+ Options              | 
+ Protocol Version     | 3.0
+ Password Used        | false
+ GSSAPI Authenticated | false
+ Backend PID          | 78274
+ SSL Connection       | false
+ Superuser            | on
+ Hot Standby          | off
+(12 rows)
+
