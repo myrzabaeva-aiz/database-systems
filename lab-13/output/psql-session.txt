@@ -1,0 +1,410 @@
+Lab 13 — Aggregate Functions
+Student: Aizirek Myrzabayeva
+$ psql --version
+psql (PostgreSQL) 18.6 (Homebrew)
+
+$ psql -X -a -v ON_ERROR_STOP=1 -P pager=off -d postgres -f lab-13/psql-demo.sql
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+\ir lab13.sql
+-- Lab 13: Aggregate Functions
+-- Student: Aizirek Myrzabayeva
+-- Fictional dataset: Community Learning Center (10 staff members)
+-- IMPORTANT: Rerunning resets ONLY the lab13 schema and its contents.
+\set ON_ERROR_STOP on
+\pset pager off
+Pager usage is off.
+DROP SCHEMA IF EXISTS lab13 CASCADE;
+psql:/Users/aizirekmyrzabayeva/database-systems/lab-13/lab13.sql:9: NOTICE:  schema "lab13" does not exist, skipping
+DROP SCHEMA
+CREATE SCHEMA lab13;
+CREATE SCHEMA
+SET search_path TO lab13, pg_catalog;
+SET
+-- 1. Sample tables. NULL email and bonus values demonstrate NULL handling.
+CREATE TABLE staff (
+    staff_id INTEGER PRIMARY KEY,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    team_name TEXT NOT NULL,
+    monthly_pay NUMERIC(10,2) NOT NULL CHECK (monthly_pay > 0),
+    email TEXT UNIQUE,
+    age INTEGER NOT NULL CHECK (age BETWEEN 18 AND 75),
+    hire_date DATE NOT NULL,
+    experience_years INTEGER NOT NULL CHECK (experience_years >= 0),
+    bonus NUMERIC(10,2)
+);
+CREATE TABLE
+INSERT INTO staff VALUES
+(1, 'Amina',  'Iskenderova', 'Training',      68000, 'amina@example.org',  28, DATE '2019-03-12', 6, 4000),
+(2, 'Beknur', 'Talipov',     'Training',      54000, 'beknur@example.org', 24, DATE '2024-02-18', 3, NULL),
+(3, 'Elina',  'Tursunova',   'Training',      59000, 'elina@example.org',  32, DATE '2021-04-01', 8, 1500),
+(4, 'Samat',  'Kadyrov',     'Training',      64000, 'samat@example.org',  36, DATE '2018-09-01', 10, 2500),
+(5, 'Zarina', 'Akmatova',    'Training',      51000, 'zarina@example.org', 22, DATE '2025-07-10', 1, 0),
+(6, 'Meerim', 'Osmonova',    'Digital Media', 72000, 'meerim@example.org', 30, DATE '2020-05-06', 7, 3500),
+(7, 'Ruslan', 'Ibraev',      'Digital Media', 62000, NULL,                 27, DATE '2022-07-15', 5, NULL),
+(8, 'Adina',  'Melisova',    'Digital Media', 58000, 'adina@example.org',  25, DATE '2023-11-03', 3, 1000),
+(9, 'Timur',  'Bekov',       'Operations',    82000, 'timur@example.org',  42, DATE '2015-01-20', 16, 6000),
+(10,'Aelita', 'Omurzakova',  'Operations',    47000, 'aelita@example.org', 23, DATE '2025-01-08', 2, NULL);
+INSERT 0 10
+CREATE TABLE workshops (
+    workshop_id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    fee NUMERIC(10,2) NOT NULL CHECK (fee >= 0)
+);
+CREATE TABLE
+INSERT INTO workshops VALUES
+(1, 'Digital Safety',       'Technology',     500),
+(2, 'Public Speaking',      'Communication', 350),
+(3, 'Python Foundations',   'Technology',     900),
+(4, 'Community Storytelling','Creative',      600);
+INSERT 0 4
+CREATE TABLE activity_payments (
+    payment_id INTEGER PRIMARY KEY,
+    staff_id INTEGER NOT NULL REFERENCES staff(staff_id),
+    amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+    payment_date DATE NOT NULL
+);
+CREATE TABLE
+INSERT INTO activity_payments VALUES
+(1, 1, 2400, DATE '2025-01-12'),
+(2, 3, 1800, DATE '2025-03-15'),
+(3, 6, 3150, DATE '2025-04-20'),
+(4, 4, 2200, DATE '2025-10-02'),
+(5, 7, 2750, DATE '2026-02-11'),
+(6, 5, 1200, DATE '2026-07-05'),
+(7, 9, 4200, DATE '2026-10-10');
+INSERT 0 7
+CREATE TABLE staff_skills (
+    staff_id INTEGER NOT NULL REFERENCES staff(staff_id),
+    skill_name TEXT NOT NULL,
+    PRIMARY KEY (staff_id, skill_name)
+);
+CREATE TABLE
+INSERT INTO staff_skills VALUES
+(1, 'SQL'), (1, 'Training Design'), (2, 'Public Speaking'),
+(3, 'Python'), (3, 'SQL'), (4, 'Mentoring'),
+(6, 'Editing'), (6, 'Photography'), (7, 'Video Production'),
+(9, 'Budgeting');
+INSERT 0 10
+CREATE TABLE workshop_reviews (
+    workshop_id INTEGER NOT NULL REFERENCES workshops(workshop_id),
+    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5)
+);
+CREATE TABLE
+INSERT INTO workshop_reviews VALUES
+(1,5),(1,5),(1,4),(1,5),
+(2,3),(2,4),
+(3,5),(3,4),(3,5);
+INSERT 0 9
+\echo ===== 01: COUNT(*) versus COUNT(column) and distinct teams =====
+===== 01: COUNT(*) versus COUNT(column) and distinct teams =====
+SELECT COUNT(*) AS staff_count,
+       COUNT(email) AS recorded_emails,
+       COUNT(*) - COUNT(email) AS missing_emails,
+       COUNT(DISTINCT team_name) AS distinct_teams
+FROM staff;
+ staff_count | recorded_emails | missing_emails | distinct_teams 
+-------------+-----------------+----------------+----------------
+          10 |               9 |              1 |              3
+(1 row)
+
+\echo ===== 02: SUM / AVG / MIN / MAX =====
+===== 02: SUM / AVG / MIN / MAX =====
+SELECT SUM(monthly_pay) AS total_monthly_pay,
+       ROUND(AVG(monthly_pay), 2) AS average_monthly_pay,
+       MIN(monthly_pay) AS lowest_pay,
+       MAX(monthly_pay) AS highest_pay
+FROM staff;
+ total_monthly_pay | average_monthly_pay | lowest_pay | highest_pay 
+-------------------+---------------------+------------+-------------
+         617000.00 |            61700.00 |   47000.00 |    82000.00
+(1 row)
+
+\echo ===== 03: Team salary summary (main screenshot) =====
+===== 03: Team salary summary (main screenshot) =====
+SELECT team_name, COUNT(*) AS staff_count,
+       SUM(monthly_pay) AS total_monthly_pay,
+       ROUND(AVG(monthly_pay), 2) AS average_monthly_pay,
+       MIN(monthly_pay) AS min_pay,
+       MAX(monthly_pay) AS max_pay
+FROM staff
+GROUP BY team_name
+ORDER BY team_name;
+   team_name   | staff_count | total_monthly_pay | average_monthly_pay | min_pay  | max_pay  
+---------------+-------------+-------------------+---------------------+----------+----------
+ Digital Media |           3 |         192000.00 |            64000.00 | 58000.00 | 72000.00
+ Operations    |           2 |         129000.00 |            64500.00 | 47000.00 | 82000.00
+ Training      |           5 |         296000.00 |            59200.00 | 51000.00 | 68000.00
+(3 rows)
+
+\echo ===== 04: Activity payments grouped by team =====
+===== 04: Activity payments grouped by team =====
+SELECT s.team_name, COUNT(*) AS payments,
+       SUM(p.amount) AS total_activity_payments
+FROM activity_payments AS p
+JOIN staff AS s USING (staff_id)
+GROUP BY s.team_name
+ORDER BY s.team_name;
+   team_name   | payments | total_activity_payments 
+---------------+----------+-------------------------
+ Digital Media |        2 |                 5900.00
+ Operations    |        1 |                 4200.00
+ Training      |        4 |                 7600.00
+(3 rows)
+
+\echo ===== 05: AVG(age) and MAX(hire_date) =====
+===== 05: AVG(age) and MAX(hire_date) =====
+SELECT team_name, ROUND(AVG(age), 2) AS average_age,
+       MAX(hire_date) AS latest_hire
+FROM staff
+GROUP BY team_name
+ORDER BY team_name;
+   team_name   | average_age | latest_hire 
+---------------+-------------+-------------
+ Digital Media |       27.33 | 2023-11-03
+ Operations    |       32.50 | 2025-01-08
+ Training      |       28.40 | 2025-07-10
+(3 rows)
+
+\echo ===== 06: STRING_AGG and ARRAY_AGG =====
+===== 06: STRING_AGG and ARRAY_AGG =====
+SELECT team_name,
+       STRING_AGG(first_name, ', ' ORDER BY first_name) AS names,
+       ARRAY_AGG(monthly_pay ORDER BY monthly_pay, staff_id) AS monthly_pays
+FROM staff
+GROUP BY team_name
+ORDER BY team_name;
+   team_name   |                names                |                  monthly_pays                  
+---------------+-------------------------------------+------------------------------------------------
+ Digital Media | Adina, Meerim, Ruslan               | {58000.00,62000.00,72000.00}
+ Operations    | Aelita, Timur                       | {47000.00,82000.00}
+ Training      | Amina, Beknur, Elina, Samat, Zarina | {51000.00,54000.00,59000.00,64000.00,68000.00}
+(3 rows)
+
+\echo ===== 07: Aggregate skills into a single string =====
+===== 07: Aggregate skills into a single string =====
+SELECT staff_id,
+       STRING_AGG(skill_name, ', ' ORDER BY skill_name) AS skills
+FROM staff_skills
+GROUP BY staff_id
+ORDER BY staff_id;
+ staff_id |        skills        
+----------+----------------------
+        1 | SQL, Training Design
+        2 | Public Speaking
+        3 | Python, SQL
+        4 | Mentoring
+        6 | Editing, Photography
+        7 | Video Production
+        9 | Budgeting
+(7 rows)
+
+\echo ===== 08: Standard deviation and sample variance =====
+===== 08: Standard deviation and sample variance =====
+SELECT team_name,
+       ROUND(STDDEV(monthly_pay), 2) AS pay_stddev,
+       ROUND(VARIANCE(monthly_pay), 2) AS pay_variance
+FROM staff
+GROUP BY team_name
+ORDER BY team_name;
+   team_name   | pay_stddev | pay_variance 
+---------------+------------+--------------
+ Digital Media |    7211.10 |  52000000.00
+ Operations    |   24748.74 | 612500000.00
+ Training      |    6978.54 |  48700000.00
+(3 rows)
+
+\echo ===== 09: CORR(experience_years, monthly_pay) =====
+===== 09: CORR(experience_years, monthly_pay) =====
+SELECT ROUND(CORR(experience_years::DOUBLE PRECISION,
+                  monthly_pay::DOUBLE PRECISION)::NUMERIC, 4)
+       AS experience_pay_correlation
+FROM staff;
+ experience_pay_correlation 
+----------------------------
+                     0.8655
+(1 row)
+
+\echo ===== 10: Multiple aggregates by workshop category =====
+===== 10: Multiple aggregates by workshop category =====
+SELECT category, COUNT(*) AS workshops,
+       SUM(fee) AS total_fees,
+       ROUND(AVG(fee), 2) AS average_fee
+FROM workshops
+GROUP BY category
+ORDER BY category;
+   category    | workshops | total_fees | average_fee 
+---------------+-----------+------------+-------------
+ Communication |         1 |     350.00 |      350.00
+ Creative      |         1 |     600.00 |      600.00
+ Technology    |         2 |    1400.00 |      700.00
+(3 rows)
+
+\echo ===== 11: GROUP BY year and quarter =====
+===== 11: GROUP BY year and quarter =====
+SELECT EXTRACT(YEAR FROM payment_date)::INT AS payment_year,
+       EXTRACT(QUARTER FROM payment_date)::INT AS quarter,
+       COUNT(*) AS payments,
+       SUM(amount) AS total_amount
+FROM activity_payments
+GROUP BY 1, 2
+ORDER BY 1, 2;
+ payment_year | quarter | payments | total_amount 
+--------------+---------+----------+--------------
+         2025 |       1 |        2 |      4200.00
+         2025 |       2 |        1 |      3150.00
+         2025 |       4 |        1 |      2200.00
+         2026 |       1 |        1 |      2750.00
+         2026 |       3 |        1 |      1200.00
+         2026 |       4 |        1 |      4200.00
+(6 rows)
+
+\echo ===== 12: GROUP BY calculated age bands =====
+===== 12: GROUP BY calculated age bands =====
+SELECT CASE WHEN age < 30 THEN 'Under 30'
+            WHEN age <= 40 THEN '30-40'
+            ELSE '41+'
+       END AS age_group,
+       COUNT(*) AS staff_count,
+       ROUND(AVG(monthly_pay), 2) AS average_pay
+FROM staff
+GROUP BY 1
+ORDER BY 1;
+ age_group | staff_count | average_pay 
+-----------+-------------+-------------
+ 30-40     |           3 |    65000.00
+ 41+       |           1 |    82000.00
+ Under 30  |           6 |    56666.67
+(3 rows)
+
+\echo ===== 13: HAVING filters a group after GROUP BY =====
+===== 13: HAVING filters a group after GROUP BY =====
+SELECT team_name, COUNT(*) AS staff_count
+FROM staff
+GROUP BY team_name
+HAVING COUNT(*) > 4
+ORDER BY team_name;
+ team_name | staff_count 
+-----------+-------------
+ Training  |           5
+(1 row)
+
+\echo ===== 14: HAVING multiple conditions (ratings) =====
+===== 14: HAVING multiple conditions (ratings) =====
+SELECT w.title, COUNT(*) AS review_count,
+       ROUND(AVG(r.rating), 2) AS average_rating
+FROM workshop_reviews AS r
+JOIN workshops AS w USING (workshop_id)
+GROUP BY w.workshop_id, w.title
+HAVING AVG(r.rating) > 4 AND COUNT(*) >= 3
+ORDER BY w.title;
+       title        | review_count | average_rating 
+--------------------+--------------+----------------
+ Digital Safety     |            4 |           4.75
+ Python Foundations |            3 |           4.67
+(2 rows)
+
+\echo ===== 15: WHERE before grouping; HAVING after grouping =====
+===== 15: WHERE before grouping; HAVING after grouping =====
+SELECT team_name, COUNT(*) AS recent_hires
+FROM staff
+WHERE hire_date >= DATE '2022-01-01'
+GROUP BY team_name
+HAVING COUNT(*) >= 2
+ORDER BY team_name;
+   team_name   | recent_hires 
+---------------+--------------
+ Digital Media |            2
+ Training      |            2
+(2 rows)
+
+\echo ===== 16: Window aggregate preserves all individual rows =====
+===== 16: Window aggregate preserves all individual rows =====
+SELECT staff_id, first_name, team_name, monthly_pay,
+       ROUND(AVG(monthly_pay) OVER (PARTITION BY team_name), 2)
+           AS team_average_pay
+FROM staff
+ORDER BY staff_id;
+ staff_id | first_name |   team_name   | monthly_pay | team_average_pay 
+----------+------------+---------------+-------------+------------------
+        1 | Amina      | Training      |    68000.00 |         59200.00
+        2 | Beknur     | Training      |    54000.00 |         59200.00
+        3 | Elina      | Training      |    59000.00 |         59200.00
+        4 | Samat      | Training      |    64000.00 |         59200.00
+        5 | Zarina     | Training      |    51000.00 |         59200.00
+        6 | Meerim     | Digital Media |    72000.00 |         64000.00
+        7 | Ruslan     | Digital Media |    62000.00 |         64000.00
+        8 | Adina      | Digital Media |    58000.00 |         64000.00
+        9 | Timur      | Operations    |    82000.00 |         64500.00
+       10 | Aelita     | Operations    |    47000.00 |         64500.00
+(10 rows)
+
+\echo ===== 17: SUM and AVG ignore NULL bonus values =====
+===== 17: SUM and AVG ignore NULL bonus values =====
+SELECT COUNT(*) AS all_staff,
+       COUNT(bonus) AS reported_bonus_values,
+       SUM(bonus) AS bonus_total,
+       ROUND(AVG(bonus), 2) AS average_reported_bonus
+FROM staff;
+ all_staff | reported_bonus_values | bonus_total | average_reported_bonus 
+-----------+-----------------------+-------------+------------------------
+        10 |                     7 |    18500.00 |                2642.86
+(1 row)
+
+\echo ===== 18: Conditional aggregation and team percentages =====
+===== 18: Conditional aggregation and team percentages =====
+SELECT team_name,
+       COUNT(*) AS staff_count,
+       COUNT(*) FILTER (WHERE monthly_pay >= 60000) AS pay_at_least_60000,
+       COUNT(*) FILTER (WHERE hire_date >= DATE '2023-01-01') AS recent_hires,
+       ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM staff), 2)
+           AS percent_of_staff
+FROM staff
+GROUP BY team_name
+ORDER BY team_name;
+   team_name   | staff_count | pay_at_least_60000 | recent_hires | percent_of_staff 
+---------------+-------------+--------------------+--------------+------------------
+ Digital Media |           3 |                  2 |            1 |            30.00
+ Operations    |           2 |                  1 |            1 |            20.00
+ Training      |           5 |                  2 |            2 |            50.00
+(3 rows)
+
+\echo ===== 19: GROUP BY multiple columns =====
+===== 19: GROUP BY multiple columns =====
+SELECT team_name, EXTRACT(YEAR FROM hire_date)::INT AS hire_year,
+       COUNT(*) AS hires
+FROM staff
+GROUP BY team_name, EXTRACT(YEAR FROM hire_date)
+ORDER BY team_name, hire_year;
+   team_name   | hire_year | hires 
+---------------+-----------+-------
+ Digital Media |      2020 |     1
+ Digital Media |      2022 |     1
+ Digital Media |      2023 |     1
+ Operations    |      2015 |     1
+ Operations    |      2025 |     1
+ Training      |      2018 |     1
+ Training      |      2019 |     1
+ Training      |      2021 |     1
+ Training      |      2024 |     1
+ Training      |      2025 |     1
+(10 rows)
+
+\echo ===== 20: Final table list =====
+===== 20: Final table list =====
+\dt lab13.*
+                     List of tables
+ Schema |       Name        | Type  |       Owner        
+--------+-------------------+-------+--------------------
+ lab13  | activity_payments | table | aizirekmyrzabayeva
+ lab13  | staff             | table | aizirekmyrzabayeva
+ lab13  | staff_skills      | table | aizirekmyrzabayeva
+ lab13  | workshop_reviews  | table | aizirekmyrzabayeva
+ lab13  | workshops         | table | aizirekmyrzabayeva
+(5 rows)
+
+RESET search_path;
+RESET
