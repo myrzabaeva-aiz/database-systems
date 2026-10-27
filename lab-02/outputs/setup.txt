@@ -1,0 +1,60 @@
+LAB 02 — POSTGRESQL AND PGADMIN SETUP
+Student: Aizirek Myrzabayeva
+Course: Database Systems, American University of Central Asia
+Environment: macOS | Homebrew | PostgreSQL 18.6 | pgAdmin 4
+
+1. POSTGRESQL VERSION
+Command:
+  psql --version
+
+Observed result:
+  psql (PostgreSQL) 18.6 (Homebrew)
+
+2. POSTGRESQL SERVICE STATUS
+Command:
+  brew services list
+
+Previously observed service:
+  Name:   postgresql@18
+  Status: started
+
+The running Homebrew service indicates that the local PostgreSQL
+server is available for connections.
+
+3. CONNECTING THROUGH THE TERMINAL
+Command:
+  psql -d postgres
+
+Observed result:
+  psql (18.6 (Homebrew))
+  Type "help" for help.
+  postgres=#
+
+The interactive PostgreSQL prompt confirms a successful local
+connection to the database named "postgres".
+
+Additional verification commands:
+  \conninfo   -- show connection details
+  \l          -- list databases
+  \q          -- exit psql
+
+4. PGADMIN 4
+pgAdmin 4 is installed and has been opened on the Mac.
+Its Query Tool has been used with the local PostgreSQL server.
+The pgAdmin interface is documented by a real screenshot.
+
+5. SCREENSHOT FILES
+  01-postgresql-version.png   — PostgreSQL client version
+  02-postgresql-service.png   — Homebrew PostgreSQL service
+  03-psql-connection.png      — terminal connection to postgres
+  04-pgadmin-connection.png   — pgAdmin server and databases
+
+Screenshots must be captured from the actual local environment.
+The above list describes intended filenames; it does not mean all
+four screenshots have already been saved.
+
+SUMMARY
+The PostgreSQL 18.6 client works on macOS, the postgresql@18
+Homebrew service was reported as started, and the local postgres
+database was successfully accessed through psql. pgAdmin 4 is
+installed and has been opened as a graphical database tool.
